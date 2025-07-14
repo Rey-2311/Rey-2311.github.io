@@ -239,141 +239,245 @@
   <!-- Debug -->
   <div id="debugReset">DEBUG RESET</div>
 
-  <script>
-    // Initialize EmailJS
-    (function(){ emailjs.init("YOUR_EMAILJS_USER_ID"); })();
+<script>
+  // EmailJS configuration
+  const EMAILJS_USER_ID             = 'YOUR_EMAILJS_USER_ID';
+  const EMAILJS_SERVICE_ID          = 'YOUR_SERVICE_ID';
+  const EMAILJS_TEMPLATE_YES        = 'YOUR_TEMPLATE_ID';
+  const EMAILJS_TEMPLATE_NO_INIT    = 'YOUR_NO_TEMPLATE_ID';
+  const EMAILJS_TEMPLATE_TEXT       = 'YOUR_TEXT_TEMPLATE_ID';
+  const EMAILJS_TEMPLATE_CHANGE     = 'YOUR_CHANGE_TEMPLATE_ID';
+  const EMAILJS_TEMPLATE_STILL_SURE = 'YOUR_STILL_SURE_TEMPLATE_ID';
+  const EMAILJS_TEMPLATE_FIRST_OPEN = 'YOUR_FIRST_OPEN_TEMPLATE_ID';
 
-    // State
-    let pendingChoice = null,
-        pendingYesBtn = null,
-        pendingNoBtn  = null;
+  // Initialize EmailJS
+  (function(){
+    emailjs.init(EMAILJS_USER_ID);
+  })();
 
-    // Show only “Thank you” view
-    function showThankYou() {
-      const sc = document.querySelector('.survey-container');
-      sc.style.display = 'flex';
-      sc.innerHTML = '<p style="font-size:1.25rem;text-align:center;">Thank you</p>';
-      document.getElementById('modalOverlay').style.display = 'none';
-      document.getElementById('changeMind').style.display = 'none';
-    }
+  // State
+  let pendingChoice = null,
+      pendingYesBtn  = null,
+      pendingNoBtn   = null,
+      modalContext   = null,
+      currentIp      = null;
 
-    // On load: decide which UI to show
-    document.addEventListener('DOMContentLoaded', () => {
-document.getElementById('changeMind').style.display = 'none';
-      fetch('https://api.ipify.org?format=json')
-        .then(res => res.json())
-        .then(({ ip }) => {
-          const finalIp = localStorage.getItem('finalNoIp');
-          if (finalIp === ip) {
-            showThankYou();
-            return;
-          }
-          const noIp = localStorage.getItem('noIp');
-          if (noIp === ip) {
-            document.getElementById('changeMind').style.display = 'flex';
-            return;
-          }
-document.getElementById('changeMind').style.display = 'none';
-          // default: show survey
-          document.querySelector('.survey-container').style.display = 'flex';
-        })
-        .catch(err => console.error('IP fetch error:', err));
-    });
+  // Show only “Thank you” view
+  function showThankYou() {
+    const sc = document.querySelector('.survey-container');
+    sc.style.display = 'flex';
+    sc.innerHTML = '<p style="font-size:1.25rem;text-align:center;">Thank you</p>';
+    document.getElementById('modalOverlay').style.display = 'none';
+    document.getElementById('changeMind').style.display   = 'none';
+  }
 
-    // User clicks Yes/No → hide everything, open modal
-    function handleClick(choice, yesBtn, noBtn) {
-      document.querySelector('.buttons').style.display = 'none';
-      document.getElementById('changeMind').style.display = 'none';
-      pendingChoice  = choice;
-      pendingYesBtn  = yesBtn;
-      pendingNoBtn   = noBtn;
-      document.getElementById('modalMessage').textContent =
-        `Are you sure you want to select “${choice.toUpperCase()}”?`;
-      document.getElementById('modalOverlay').style.display = 'flex';
-    }
+  // Show a confirm-style modal (Confirm + Cancel)
+  function showConfirmModal(message, ctx) {
+    modalContext = ctx;
+    const overlay = document.getElementById('modalOverlay');
+    document.getElementById('modalMessage').textContent    = message;
+    document.getElementById('modalConfirmBtn').textContent = 'Confirm';
+    document.getElementById('modalCancelBtn').style.display = 'inline-block';
+    overlay.style.display = 'flex';
+  }
 
-    // Modal “Confirm”
-    document.getElementById('modalConfirmBtn').addEventListener('click', () => {
-      document.getElementById('modalOverlay').style.display = 'none';
-      if (pendingChoice === 'yes') {
-        document.querySelector('.buttons').style.display = 'flex';
-      }
-      const choice = pendingChoice,
-            yesBtn = pendingYesBtn,
-            noBtn  = pendingNoBtn;
-      pendingChoice = pendingYesBtn = pendingNoBtn = null;
+  // Show an info-style modal (OK only)
+  function showInfoModal(message) {
+    modalContext = 'info';
+    const overlay = document.getElementById('modalOverlay');
+    document.getElementById('modalMessage').textContent    = message;
+    document.getElementById('modalConfirmBtn').textContent = 'OK';
+    document.getElementById('modalCancelBtn').style.display = 'none';
+    overlay.style.display = 'flex';
+  }
 
-      if (choice === 'no') {
-        fetch('https://api.ipify.org?format=json')
-          .then(res => res.json())
-          .then(({ ip }) => {
-            localStorage.setItem('noIp', ip);
-          })
-          .catch(err => console.error('IP fetch error:', err));
-        showThankYou();
-        return;
-      }
+  // On load: hide everything, fetch IP, record first-open and decide which UI to show
+  document.addEventListener('DOMContentLoaded', () => {
+    document.querySelector('.survey-container').style.display = 'none';
+    document.getElementById('changeMind').style.display       = 'none';
+    document.getElementById('modalOverlay').style.display     = 'none';
 
-      // YES flow
-      noBtn.disabled = true;
-      const fixedBox = document.getElementById('fixedBox');
-      fixedBox.textContent = 'Yes is clicked';
-      fixedBox.style.display = 'block';
-      emailjs.send('YOUR_SERVICE_ID','YOUR_TEMPLATE_ID',{answer:'yes'})
-        .catch(err => console.error('Email send error:', err));
-    });
+    fetch('https://api.ipify.org?format=json')
+      .then(res => res.json())
+      .then(({ ip }) => {
+        currentIp = ip;
 
-    // Modal “Cancel”
-    document.getElementById('modalCancelBtn').addEventListener('click', () => {
-      document.getElementById('modalOverlay').style.display = 'none';
-      document.querySelector('.buttons').style.display = 'flex';
-      pendingChoice = pendingYesBtn = pendingNoBtn = null;
-    });
+        // One-time on first load: notify with timestamp
+        if (!localStorage.getItem('firstOpenSent')) {
+          emailjs.send(
+            EMAILJS_SERVICE_ID,
+            EMAILJS_TEMPLATE_FIRST_OPEN,
+            { ip, firstOpenTime: new Date().toLocaleString() }
+          ).catch(err => console.error('Email send error:', err));
+          localStorage.setItem('firstOpenSent', 'true');
+        }
 
-    // Feedback submit
-    function handleTextSubmit() {
-      const txt = document.getElementById('textInput'),
-            btn = document.getElementById('submitTextBtn'),
-            msg = txt.value.trim();
-      if (!msg) return;
-      btn.disabled = true;
-      emailjs.send('YOUR_SERVICE_ID','YOUR_TEXT_TEMPLATE_ID',{message:msg})
-        .finally(() => { txt.value = ''; btn.disabled = false; });
-    }
-
-    // Change-mind submit
-    document.getElementById('sendChangeBtn').addEventListener('click', () => {
-      const email = document.getElementById('emailInput').value.trim(),
-            msg   = document.getElementById('msgInput').value.trim();
-      if (!email || !msg) return;
-      emailjs.send('YOUR_SERVICE_ID','YOUR_CHANGE_TEMPLATE_ID',{email,message:msg})
-        .then(() => {
-          document.getElementById('changeMind').innerHTML =
-            '<p style="font-size:1.25rem;text-align:center;">Thanks, we’ll be in touch.</p>';
-        })
-        .catch(err => console.error('Email send error:', err));
-    });
-
-    // Still-sure flow
-    document.getElementById('stillSureBtn').addEventListener('click', () => {
-      if (!confirm('Are you still sure?')) return;
-      fetch('https://api.ipify.org?format=json')
-        .then(res => res.json())
-        .then(({ ip }) => {
-          emailjs.send('YOUR_SERVICE_ID','YOUR_STILL_SURE_TEMPLATE_ID',{ip})
-            .catch(err => console.error('Email send error:', err));
-          localStorage.setItem('finalNoIp', ip);
+        const finalIp = localStorage.getItem('finalNoIp');
+        if (finalIp === ip) {
           showThankYou();
-        })
-        .catch(err => console.error('IP fetch error:', err));
-    });
+          return;
+        }
+        const noIp = localStorage.getItem('noIp');
+        if (noIp === ip) {
+          document.getElementById('changeMind').style.display = 'flex';
+          return;
+        }
+        // Default: show the survey
+        document.querySelector('.survey-container').style.display = 'flex';
+      })
+      .catch(err => console.error('IP fetch error:', err));
+  });
 
-    // Debug reset
-    document.getElementById('debugReset').addEventListener('click', () => {
-      localStorage.removeItem('noIp');
-      localStorage.removeItem('finalNoIp');
-      location.reload();
+  // User clicks Yes/No → hide UI and open confirmation modal
+  function handleClick(choice, yesBtn, noBtn) {
+    document.querySelector('.buttons').style.display     = 'none';
+    document.getElementById('changeMind').style.display = 'none';
+    pendingChoice = choice;
+    pendingYesBtn = yesBtn;
+    pendingNoBtn  = noBtn;
+    document.getElementById('modalMessage').textContent =
+      `Are you sure you want to select “${choice.toUpperCase()}”?`;
+    document.getElementById('modalOverlay').style.display = 'flex';
+  }
+
+  // Modal “Confirm” button handler
+  document.getElementById('modalConfirmBtn').addEventListener('click', () => {
+    const ctx = modalContext;
+    modalContext = null;
+
+    // Info-only modal: dismiss
+    if (ctx === 'info') {
+      document.getElementById('modalOverlay').style.display     = 'none';
+      document.getElementById('modalConfirmBtn').textContent   = 'Confirm';
+      document.getElementById('modalCancelBtn').style.display  = 'inline-block';
+      return;
+    }
+
+    // “Still sure?” modal: run that flow
+    if (ctx === 'stillSure') {
+      document.getElementById('modalOverlay').style.display = 'none';
+      handleStillSure();
+      return;
+    }
+
+    // Initial Yes/No confirm
+    document.getElementById('modalOverlay').style.display = 'none';
+    if (pendingChoice === 'yes') {
+      document.querySelector('.buttons').style.display = 'flex';
+    }
+    const choice = pendingChoice,
+          yesBtn = pendingYesBtn,
+          noBtn  = pendingNoBtn;
+    pendingChoice = pendingYesBtn = pendingNoBtn = null;
+
+    if (choice === 'no') {
+      // Initial No+Confirm: persist IP, notify, show thank-you
+      localStorage.setItem('noIp', currentIp);
+      emailjs.send(
+        EMAILJS_SERVICE_ID,
+        EMAILJS_TEMPLATE_NO_INIT,
+        { answer: 'no', ip: currentIp }
+      ).catch(err => console.error('Email send error:', err));
+      showThankYou();
+      return;
+    }
+
+    // YES flow
+    noBtn.disabled = true;
+    const fixedBox = document.getElementById('fixedBox');
+    fixedBox.textContent = 'Yes is clicked';
+    fixedBox.style.display = 'block';
+    emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_YES,
+      { answer: 'yes' }
+    ).catch(err => console.error('Email send error:', err));
+  });
+
+  // Modal “Cancel” button handler
+  document.getElementById('modalCancelBtn').addEventListener('click', () => {
+    document.getElementById('modalOverlay').style.display     = 'none';
+    document.querySelector('.buttons').style.display          = 'flex';
+    pendingChoice = pendingYesBtn = pendingNoBtn = null;
+  });
+
+  // Feedback textarea submit
+  function handleTextSubmit() {
+    const txt = document.getElementById('textInput'),
+          btn = document.getElementById('submitTextBtn'),
+          msg = txt.value.trim();
+    if (!msg) return;
+    btn.disabled = true;
+    emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_TEXT,
+      { message: msg }
+    ).finally(() => {
+      txt.value = '';
+      btn.disabled = false;
     });
-  </script>
+  }
+
+  // Change-mind form submit: validate, then show info modal on success
+  document.getElementById('sendChangeBtn').addEventListener('click', () => {
+    const email = document.getElementById('emailInput').value.trim();
+    const msg   = document.getElementById('msgInput').value.trim();
+
+    if (!email || !msg) {
+      showInfoModal('Please enter both your email and a message.');
+      return;
+    }
+    if (!/^\S+@\S+\.\S+$/.test(email)) {
+      showInfoModal('Please enter a valid email address.');
+      return;
+    }
+
+    const btn = document.getElementById('sendChangeBtn');
+    btn.disabled = true;
+
+    emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_CHANGE,
+      { email, message: msg }
+    )
+    .then(() => {
+      document.getElementById('changeMind').style.display = 'none';
+      showInfoModal('Your message has been sent');
+    })
+    .catch(err => {
+      console.error('Email send error:', err);
+      showInfoModal('Oops! Something went wrong. Please try again.');
+    })
+    .finally(() => {
+      btn.disabled = false;
+    });
+  });
+
+  // Still-sure button: only show the confirm-style modal
+  document.getElementById('stillSureBtn').addEventListener('click', () => {
+    showConfirmModal('Are you still sure?', 'stillSure');
+  });
+
+  // Final “still sure” flow uses saved currentIp
+  function handleStillSure() {
+    localStorage.setItem('finalNoIp', currentIp);
+    emailjs.send(
+      EMAILJS_SERVICE_ID,
+      EMAILJS_TEMPLATE_STILL_SURE,
+      { ip: currentIp }
+    ).catch(err => console.error('Email send error:', err));
+    showThankYou();
+  }
+
+  // Debug reset: clear stored IPs and reload
+  document.getElementById('debugReset').addEventListener('click', () => {
+    localStorage.removeItem('noIp');
+    localStorage.removeItem('finalNoIp');
+    localStorage.removeItem('firstOpenSent');
+    location.reload();
+  });
+</script>
+
+
 </body>
 </html>
