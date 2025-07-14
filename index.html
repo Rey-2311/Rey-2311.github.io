@@ -1,0 +1,109 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Quick Survey</title>
+  <!-- EmailJS SDK -->
+  <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
+  <style>
+    /* Mobile-first styles */
+    body {
+      margin: 0;
+      padding: 0;
+      font-family: sans-serif;
+      display: flex;
+      flex-direction: column;
+      height: 100vh;
+      background: #f9f9f9;
+    }
+    .survey-container {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: start;
+      align-items: center;
+      padding: 2rem 1rem;
+    }
+    .question {
+      font-size: 1.25rem;
+      text-align: center;
+      margin-bottom: 2rem;
+    }
+    .buttons {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+    }
+    button {
+      padding: 1rem;
+      font-size: 1.1rem;
+      border: none;
+      border-radius: 8px;
+      cursor: pointer;
+      transition: background 0.2s;
+    }
+    button:disabled {
+      opacity: 0.5;
+      cursor: default;
+    }
+    #yesBtn {
+      background: #4caf50;
+      color: white;
+    }
+    #yesBtn:hover:not(:disabled) {
+      background: #45a049;
+    }
+    #noBtn {
+      background: #f44336;
+      color: white;
+    }
+    #noBtn:hover:not(:disabled) {
+      background: #e53935;
+    }
+  </style>
+  <script>
+    // Initialize EmailJS (replace with your own user ID)
+    (function(){
+      emailjs.init("YOUR_EMAILJS_USER_ID");
+    })();
+
+    function handleClick(choice, yesBtn, noBtn) {
+      // Disable the opposite button
+      if (choice === 'yes') {
+        noBtn.disabled = true;
+      } else {
+        yesBtn.disabled = true;
+      }
+      // Send silent email
+      const templateParams = { answer: choice };
+      emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
+        .then(() => {
+          console.log('Survey answer sent:', choice);
+        })
+        .catch(err => {
+          console.error('Email send error:', err);
+        });
+    }
+  </script>
+</head>
+<body>
+  <div class="survey-container">
+    <div class="question">
+      Do you find this survey helpful?
+    </div>
+    <div class="buttons">
+      <button id="yesBtn"
+              onclick="handleClick('yes', this, document.getElementById('noBtn'))">
+        Yes
+      </button>
+      <button id="noBtn"
+              onclick="handleClick('no', document.getElementById('yesBtn'), this)">
+        No
+      </button>
+    </div>
+  </div>
+</body>
+</html>
