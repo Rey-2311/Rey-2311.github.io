@@ -28,7 +28,7 @@
     .question {
       font-size: 1.25rem;
       text-align: center;
-      margin-bottom: 2rem;
+      margin-bottom: 1rem;
     }
     .buttons {
       width: 100%;
@@ -36,6 +36,26 @@
       display: flex;
       flex-direction: column;
       gap: 1rem;
+    }
+    .fixed-text-box {
+      width: 100%;
+      max-width: 400px;
+      margin-top: 1.5rem;
+      padding: 1rem;
+      font-size: 1rem;
+      text-align: center;
+      border: 1px solid #ddd;
+      border-radius: 4px;
+      background: #fff;
+      display: none; /* Hidden until a choice is clicked */
+    }
+    .text-box {
+      width: 100%;
+      max-width: 400px;
+      display: flex;
+      flex-direction: column;
+      gap: 1rem;
+      margin-top: 2rem;
     }
     button {
       padding: 1rem;
@@ -63,28 +83,59 @@
     #noBtn:hover:not(:disabled) {
       background: #e53935;
     }
+    #textInput {
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+      min-height: 80px;
+    }
+    #submitTextBtn {
+      background: #2196f3;
+      color: white;
+    }
+    #submitTextBtn:hover:not(:disabled) {
+      background: #1976d2;
+    }
   </style>
   <script>
     // Initialize EmailJS (replace with your own user ID)
-    (function(){
-      emailjs.init("YOUR_EMAILJS_USER_ID");
-    })();
+    (function(){ emailjs.init("YOUR_EMAILJS_USER_ID"); })();
 
     function handleClick(choice, yesBtn, noBtn) {
-      // Disable the opposite button
+      // Disable opposite button
+      if (choice === 'yes') noBtn.disabled = true;
+      else yesBtn.disabled = true;
+
+      // FIXED TEXT BOX LOGIC: insert hard-coded content
+      const fixedBox = document.getElementById('fixedBox');
       if (choice === 'yes') {
-        noBtn.disabled = true;
+        fixedBox.textContent = 'Yes is clicked'; // EDIT THIS MESSAGE FOR YES
       } else {
-        yesBtn.disabled = true;
+        fixedBox.textContent = 'No is clicked'; // EDIT THIS MESSAGE FOR NO
       }
-      // Send silent email
+      fixedBox.style.display = 'block'; // Show after click
+
+      // Send survey answer via EmailJS
       const templateParams = { answer: choice };
       emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
-        .then(() => {
-          console.log('Survey answer sent:', choice);
-        })
-        .catch(err => {
-          console.error('Email send error:', err);
+        .then(() => console.log('Survey answer sent:', choice))
+        .catch(err => console.error('Email send error:', err));
+    }
+
+    function handleTextSubmit() {
+      const textInput = document.getElementById('textInput');
+      const submitBtn = document.getElementById('submitTextBtn');
+      const content = textInput.value.trim();
+      if (!content) return;
+      submitBtn.disabled = true;
+      const templateParams = { message: content };
+      emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEXT_TEMPLATE_ID', templateParams)
+        .catch(err => console.error('Email send error:', err))
+        .finally(() => {
+          textInput.value = '';
+          submitBtn.disabled = false;
         });
     }
   </script>
@@ -95,14 +146,14 @@
       Do you find this survey helpful?
     </div>
     <div class="buttons">
-      <button id="yesBtn"
-              onclick="handleClick('yes', this, document.getElementById('noBtn'))">
-        Yes
-      </button>
-      <button id="noBtn"
-              onclick="handleClick('no', document.getElementById('yesBtn'), this)">
-        No
-      </button>
+      <button id="yesBtn" onclick="handleClick('yes', this, document.getElementById('noBtn'))">Yes</button>
+      <button id="noBtn" onclick="handleClick('no', document.getElementById('yesBtn'), this)">No</button>
+    </div>
+    <!-- FIXED TEXT BOX: content set dynamically in handleClick -->
+    <div id="fixedBox" class="fixed-text-box"></div>
+    <div class="text-box">
+      <textarea id="textInput" placeholder="Type your feedback here..."></textarea>
+      <button id="submitTextBtn" onclick="handleTextSubmit()">Submit</button>
     </div>
   </div>
 </body>
