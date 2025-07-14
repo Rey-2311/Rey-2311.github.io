@@ -7,7 +7,7 @@
   <!-- EmailJS SDK -->
   <script src="https://cdn.jsdelivr.net/npm/emailjs-com@3/dist/email.min.js"></script>
   <style>
-    /* Mobile-first styles */
+    /* ---------- Layout & survey ---------- */
     body {
       margin: 0;
       padding: 0;
@@ -18,8 +18,9 @@
       background: #f9f9f9;
     }
     .survey-container {
+      /* Hidden by default to avoid flicker */
+      display: none;
       flex: 1;
-      display: flex;
       flex-direction: column;
       justify-content: start;
       align-items: center;
@@ -47,7 +48,7 @@
       border: 1px solid #ddd;
       border-radius: 4px;
       background: #fff;
-      display: none; /* Hidden until a choice is clicked */
+      display: none;
     }
     .text-box {
       width: 100%;
@@ -71,17 +72,24 @@
     }
     #yesBtn {
       background: #4caf50;
-      color: white;
+      color: #fff;
     }
     #yesBtn:hover:not(:disabled) {
       background: #45a049;
     }
     #noBtn {
       background: #f44336;
-      color: white;
+      color: #fff;
     }
     #noBtn:hover:not(:disabled) {
       background: #e53935;
+    }
+    #submitTextBtn {
+      background: #2196f3;
+      color: #fff;
+    }
+    #submitTextBtn:hover:not(:disabled) {
+      background: #1976d2;
     }
     #textInput {
       padding: 0.75rem;
@@ -91,70 +99,281 @@
       resize: vertical;
       min-height: 80px;
     }
-    #submitTextBtn {
-      background: #2196f3;
-      color: white;
+
+    /* ---------- Modal ---------- */
+    .modal-overlay {
+      position: fixed;
+      top: 0; left: 0;
+      width: 100%; height: 100%;
+      background: rgba(0, 0, 0, 0.5);
+      display: none;
+      justify-content: center;
+      align-items: center;
+      z-index: 1000;
     }
-    #submitTextBtn:hover:not(:disabled) {
-      background: #1976d2;
+    .modal-box {
+      background: #fff;
+      padding: 1.5rem;
+      border-radius: 8px;
+      max-width: 90%;
+      width: 320px;
+      box-shadow: 0 2px 10px rgba(0,0,0,0.3);
+      text-align: center;
+    }
+    .modal-box p {
+      margin: 0;
+      font-size: 1.1rem;
+    }
+    .modal-buttons {
+      margin-top: 1rem;
+      display: flex;
+      justify-content: space-between;
+      gap: 0.5rem;
+    }
+    .modal-buttons button {
+      flex: 1;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border-radius: 4px;
+      border: none;
+      cursor: pointer;
+    }
+    #modalConfirmBtn {
+      background: #4caf50;
+      color: #fff;
+    }
+    #modalCancelBtn {
+      background: #f44336;
+      color: #fff;
+    }
+
+    /* ---------- Change-mind form ---------- */
+    .hidden {
+      display: none;
+    }
+         /* Change-mind form (hidden by default) */
+   #changeMind {
+     display: none;
+     width: 100%;
+     max-width: 400px;
+     margin: 2rem auto;
+     padding: 1.5rem;
+     border: 1px solid #ddd;
+     border-radius: 4px;
+    background: #fff;
+     display: flex;
+     flex-direction: column;
+     gap: 1rem;
+   }
+
+
+    /* Make email & message fields match the main feedback textarea */
+    #changeMind input,
+    #changeMind textarea {
+      width: 100%;
+      padding: 0.75rem;
+      font-size: 1rem;
+      border: 1px solid #ccc;
+      border-radius: 4px;
+      resize: vertical;
+      min-height: 80px;
+      box-sizing: border-box;
+    }
+
+
+    /* ---------- Debug reset ---------- */
+    #debugReset {
+      position: fixed;
+      bottom: 10px;
+      right: 10px;
+      background: #333;
+      color: #fff;
+      padding: 5px 10px;
+      border-radius: 4px;
+      cursor: pointer;
+      opacity: 0.7;
+      font-size: 12px;
+      z-index: 2000;
     }
   </style>
-  <script>
-    // Initialize EmailJS (replace with your own user ID)
-    (function(){ emailjs.init("YOUR_EMAILJS_USER_ID"); })();
-
-    function handleClick(choice, yesBtn, noBtn) {
-      // Disable opposite button
-      if (choice === 'yes') noBtn.disabled = true;
-      else yesBtn.disabled = true;
-
-      // FIXED TEXT BOX LOGIC: insert hard-coded content
-      const fixedBox = document.getElementById('fixedBox');
-      if (choice === 'yes') {
-        fixedBox.textContent = 'Yes is clicked'; // EDIT THIS MESSAGE FOR YES
-      } else {
-        fixedBox.textContent = 'No is clicked'; // EDIT THIS MESSAGE FOR NO
-      }
-      fixedBox.style.display = 'block'; // Show after click
-
-      // Send survey answer via EmailJS
-      const templateParams = { answer: choice };
-      emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEMPLATE_ID', templateParams)
-        .then(() => console.log('Survey answer sent:', choice))
-        .catch(err => console.error('Email send error:', err));
-    }
-
-    function handleTextSubmit() {
-      const textInput = document.getElementById('textInput');
-      const submitBtn = document.getElementById('submitTextBtn');
-      const content = textInput.value.trim();
-      if (!content) return;
-      submitBtn.disabled = true;
-      const templateParams = { message: content };
-      emailjs.send('YOUR_SERVICE_ID', 'YOUR_TEXT_TEMPLATE_ID', templateParams)
-        .catch(err => console.error('Email send error:', err))
-        .finally(() => {
-          textInput.value = '';
-          submitBtn.disabled = false;
-        });
-    }
-  </script>
 </head>
 <body>
+  <!-- Modal -->
+  <div id="modalOverlay" class="modal-overlay">
+    <div class="modal-box">
+      <p id="modalMessage">Are you sure?</p>
+      <div class="modal-buttons">
+        <button id="modalConfirmBtn">Confirm</button>
+        <button id="modalCancelBtn">Cancel</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Survey (hidden by default) -->
   <div class="survey-container">
-    <div class="question">
-      Do you find this survey helpful?
-    </div>
+    <div class="question">Do you find this survey helpful?</div>
     <div class="buttons">
-      <button id="yesBtn" onclick="handleClick('yes', this, document.getElementById('noBtn'))">Yes</button>
-      <button id="noBtn" onclick="handleClick('no', document.getElementById('yesBtn'), this)">No</button>
+      <button id="yesBtn" onclick="handleClick('yes',this,document.getElementById('noBtn'))">
+        Yes
+      </button>
+      <button id="noBtn" onclick="handleClick('no',document.getElementById('yesBtn'),this)">
+        No
+      </button>
     </div>
-    <!-- FIXED TEXT BOX: content set dynamically in handleClick -->
     <div id="fixedBox" class="fixed-text-box"></div>
     <div class="text-box">
       <textarea id="textInput" placeholder="Type your feedback here..."></textarea>
       <button id="submitTextBtn" onclick="handleTextSubmit()">Submit</button>
     </div>
   </div>
+
+  <!-- Change-mind form (hidden by default) -->
+  <div id="changeMind">
+    <p>Do you want to change your mind?</p>
+    <input id="emailInput" type="email" placeholder="Your email" />
+    <textarea id="msgInput" placeholder="Your message"></textarea>
+    <button id="sendChangeBtn">Submit</button>
+    <button id="stillSureBtn">No, I’m still sure</button>
+  </div>
+
+  <!-- Debug -->
+  <div id="debugReset">DEBUG RESET</div>
+
+  <script>
+    // Initialize EmailJS
+    (function(){ emailjs.init("YOUR_EMAILJS_USER_ID"); })();
+
+    // State
+    let pendingChoice = null,
+        pendingYesBtn = null,
+        pendingNoBtn  = null;
+
+    // Show only “Thank you” view
+    function showThankYou() {
+      const sc = document.querySelector('.survey-container');
+      sc.style.display = 'flex';
+      sc.innerHTML = '<p style="font-size:1.25rem;text-align:center;">Thank you</p>';
+      document.getElementById('modalOverlay').style.display = 'none';
+      document.getElementById('changeMind').style.display = 'none';
+    }
+
+    // On load: decide which UI to show
+    document.addEventListener('DOMContentLoaded', () => {
+document.getElementById('changeMind').style.display = 'none';
+      fetch('https://api.ipify.org?format=json')
+        .then(res => res.json())
+        .then(({ ip }) => {
+          const finalIp = localStorage.getItem('finalNoIp');
+          if (finalIp === ip) {
+            showThankYou();
+            return;
+          }
+          const noIp = localStorage.getItem('noIp');
+          if (noIp === ip) {
+            document.getElementById('changeMind').style.display = 'flex';
+            return;
+          }
+document.getElementById('changeMind').style.display = 'none';
+          // default: show survey
+          document.querySelector('.survey-container').style.display = 'flex';
+        })
+        .catch(err => console.error('IP fetch error:', err));
+    });
+
+    // User clicks Yes/No → hide everything, open modal
+    function handleClick(choice, yesBtn, noBtn) {
+      document.querySelector('.buttons').style.display = 'none';
+      document.getElementById('changeMind').style.display = 'none';
+      pendingChoice  = choice;
+      pendingYesBtn  = yesBtn;
+      pendingNoBtn   = noBtn;
+      document.getElementById('modalMessage').textContent =
+        `Are you sure you want to select “${choice.toUpperCase()}”?`;
+      document.getElementById('modalOverlay').style.display = 'flex';
+    }
+
+    // Modal “Confirm”
+    document.getElementById('modalConfirmBtn').addEventListener('click', () => {
+      document.getElementById('modalOverlay').style.display = 'none';
+      if (pendingChoice === 'yes') {
+        document.querySelector('.buttons').style.display = 'flex';
+      }
+      const choice = pendingChoice,
+            yesBtn = pendingYesBtn,
+            noBtn  = pendingNoBtn;
+      pendingChoice = pendingYesBtn = pendingNoBtn = null;
+
+      if (choice === 'no') {
+        fetch('https://api.ipify.org?format=json')
+          .then(res => res.json())
+          .then(({ ip }) => {
+            localStorage.setItem('noIp', ip);
+          })
+          .catch(err => console.error('IP fetch error:', err));
+        showThankYou();
+        return;
+      }
+
+      // YES flow
+      noBtn.disabled = true;
+      const fixedBox = document.getElementById('fixedBox');
+      fixedBox.textContent = 'Yes is clicked';
+      fixedBox.style.display = 'block';
+      emailjs.send('YOUR_SERVICE_ID','YOUR_TEMPLATE_ID',{answer:'yes'})
+        .catch(err => console.error('Email send error:', err));
+    });
+
+    // Modal “Cancel”
+    document.getElementById('modalCancelBtn').addEventListener('click', () => {
+      document.getElementById('modalOverlay').style.display = 'none';
+      document.querySelector('.buttons').style.display = 'flex';
+      pendingChoice = pendingYesBtn = pendingNoBtn = null;
+    });
+
+    // Feedback submit
+    function handleTextSubmit() {
+      const txt = document.getElementById('textInput'),
+            btn = document.getElementById('submitTextBtn'),
+            msg = txt.value.trim();
+      if (!msg) return;
+      btn.disabled = true;
+      emailjs.send('YOUR_SERVICE_ID','YOUR_TEXT_TEMPLATE_ID',{message:msg})
+        .finally(() => { txt.value = ''; btn.disabled = false; });
+    }
+
+    // Change-mind submit
+    document.getElementById('sendChangeBtn').addEventListener('click', () => {
+      const email = document.getElementById('emailInput').value.trim(),
+            msg   = document.getElementById('msgInput').value.trim();
+      if (!email || !msg) return;
+      emailjs.send('YOUR_SERVICE_ID','YOUR_CHANGE_TEMPLATE_ID',{email,message:msg})
+        .then(() => {
+          document.getElementById('changeMind').innerHTML =
+            '<p style="font-size:1.25rem;text-align:center;">Thanks, we’ll be in touch.</p>';
+        })
+        .catch(err => console.error('Email send error:', err));
+    });
+
+    // Still-sure flow
+    document.getElementById('stillSureBtn').addEventListener('click', () => {
+      if (!confirm('Are you still sure?')) return;
+      fetch('https://api.ipify.org?format=json')
+        .then(res => res.json())
+        .then(({ ip }) => {
+          emailjs.send('YOUR_SERVICE_ID','YOUR_STILL_SURE_TEMPLATE_ID',{ip})
+            .catch(err => console.error('Email send error:', err));
+          localStorage.setItem('finalNoIp', ip);
+          showThankYou();
+        })
+        .catch(err => console.error('IP fetch error:', err));
+    });
+
+    // Debug reset
+    document.getElementById('debugReset').addEventListener('click', () => {
+      localStorage.removeItem('noIp');
+      localStorage.removeItem('finalNoIp');
+      location.reload();
+    });
+  </script>
 </body>
 </html>
